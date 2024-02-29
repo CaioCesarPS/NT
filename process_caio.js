@@ -122,10 +122,6 @@ function addToStockWhenSalesOrderFinished(
 }
 
 function allocate(salesOrders, purchaseOrders) {
-  // eu vou iterar sobre as os as compras dos fornecedores, se o estoque atual nao suprir o pedido ele adiciona no estoque.
-  // quando o proximo estoque chegar ele vai tentar suprir o pedido novamente.
-  // se surprir ele vai criar um objeto contento o id e a data de entrega que é a data do ultimo estoque + 7 dias.
-  // ele vai deletar o pedido que foi suprido e vai para o proximo pedido.
   const orderedSalesOrders = salesOrders.sort(
     (a, b) => new Date(a.created).getTime() - new Date(b.created).getTime()
   );
