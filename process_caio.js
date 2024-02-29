@@ -1,5 +1,5 @@
 // 1- O cliente pode fazer compra de produtos em estoque ou não, mas que estejam vindo.
-// 2- Os Clientes que podem fazer pedidos de prdutos que não estejam no estoque mas eles precisam de uma data pra saber quando o pedido será
+// 2- Os Clientes podem fazer pedidos de prdutos que não estejam no estoque mas eles precisam de uma data pra saber quando o pedido será
 // atendido.
 //3- Para fazer isso, será alocado o fornecimentos recebido aos pedidos pendentes por ordem de chegada.
 
@@ -39,6 +39,21 @@ const salesOrders = [
     created: '2019-12-15',
     quantity: 9,
   },
+  {
+    id: 'S6',
+    created: '2021-12-20',
+    quantity: 3,
+  },
+  {
+    id: 'S7',
+    created: '2021-12-20',
+    quantity: 3,
+  },
+  {
+    id: 'S8',
+    created: '2021-12-20',
+    quantity: 3,
+  },
 ];
 
 const purchaseOrders = [
@@ -67,116 +82,84 @@ const purchaseOrders = [
     receiving: '2020-02-20',
     quantity: 7,
   },
+  {
+    id: 'P6',
+    receiving: '2020-02-25',
+    quantity: 10,
+  },
 ];
 
-const stockEnum = {
-  INSUFICIENT_STOCK: 'INSUFICIENT_STOCK',
-};
-
-// function removeFromStockOrFail(stock, quantityToRemove) {
-//   if (quantityToRemove > stock) {
-//     return {
-//       updatedStock: null,
-//       error: stockEnum.INSUFICIENT_STOCK,
-//     };
-//   }
-//   return {
-//     updatedStock: stock - quantityToRemove,
-//     error: null,
-//   };
-// }
-
-// function addToStock(stock, quantityToAdd) {
-//   return (stock += quantityToAdd);
-// }
-
-// function allocateStock(salesOrders, purchaseOrders) {}
-
-function allocate(salesOrders, purchaseOrders) {
-  // Sort sales orders by creation date
+function allocate(
+  salesOrders,
+  purchaseOrders
+) {
+  // eu vou iterar sobre as os as compras dos fornecedores, se o estoque atual nao suprir o pedido ele adiciona no estoque.
+  // quando o proximo estoque chegar ele vai tentar suprir o pedido novamente.
+  // se surprir ele vai criar um objeto contento o id e a data de entrega que é a data do ultimo estoque + 7 dias.
+  // ele vai deletar o pedido que foi suprido e vai para o proximo pedido.
   const orderedSalesOrders = salesOrders
-    .sort((a, b) => new Date(b.created) - new Date(a.created))
+    .sort(
+      (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
+    )
     .reverse();
   console.log('orderedSalesOrders', orderedSalesOrders);
 
-  // Sort purchase orders by receiving date
   const orderedPurchaseOrders = purchaseOrders
-    .sort((a, b) => new Date(b.receiving) - new Date(a.receiving))
+    .map((order) => {
+      return {
+        ...order,
+        arrived: false,
+      };
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.receiving).getTime() - new Date(a.receiving).getTime()
+    )
     .reverse();
   console.log('orderedPurchaseOrders', orderedPurchaseOrders);
 
-  let availableQuantity = 0; // Initialize available quantity
-  let allocationDates = {}; // Object to store allocation dates for each sales order
+  let stock = 0;
+  let index = 0;
+  let allocationDates = [];
 
-  let i = 0; // Index for purchase orders
-  for (const salesOrder of orderedSalesOrders) {
-    const { id, created, quantity } = salesOrder;
-    let remainingQuantity = quantity; // Initialize remaining quantity for the current sales order
-
-    // Allocate from available supply until the sales order is fulfilled
-    while (remainingQuantity > 0 && i < orderedPurchaseOrders.length) {
-      const purchaseOrder = orderedPurchaseOrders[i];
-      const { receiving, quantity: receivedQuantity } = purchaseOrder;
-
-      // Update available quantity if purchase order has been received
-      if (new Date(receiving) <= new Date(created)) {
-        availableQuantity += receivedQuantity;
-        i++;
-        continue; // Move to the next purchase order
-      }
-
-      // Allocate from available supply to the current sales order
-      const allocatedQuantity = Math.min(remainingQuantity, receivedQuantity);
-      remainingQuantity -= allocatedQuantity;
-      availableQuantity -= allocatedQuantity;
-
-      // Store allocation date for the current sales order
-      if (!allocationDates[id]) {
-        allocationDates[id] = receiving;
-      }
-
-      // If the sales order is fulfilled, break the loop
-      if (remainingQuantity === 0) {
-        break;
-      }
-
-      i++; // Move to the next purchase order
+  while (orderedPurchaseOrders.filter((order) => order.arrived === false)) {
+    if (orderedPurchaseOrders.length === index) {
+      return allocationDates;
     }
 
-    // If the sales order is not fulfilled, calculate the expected allocation date
-    if (remainingQuantity > 0) {
-      // const daysToWait =
-      //   Math.ceil(remainingQuantity / orderedPurchaseOrders[i - 1].quantity) * 7;
-
-      const remainingPurchaseQuantity = purchaseOrders[i - 1].quantity;
-      let ordersNeeded = Math.ceil(
-        remainingQuantity / remainingPurchaseQuantity
-      );
-
-      // Calculamos o tempo de espera multiplicando o número de pedidos necessários pelo tempo de entrega de um pedido
-      const daysToWait = ordersNeeded * 7;
-      const expectedAllocationDate = new Date(
-        orderedPurchaseOrders[i - 1].receiving
-      );
-      expectedAllocationDate.setDate(
-        expectedAllocationDate.getDate() + daysToWait
-      );
-      allocationDates[id] = expectedAllocationDate.toISOString().split('T')[0];
+    if (!orderedSalesOrders[index]) {
+      stock += orderedPurchaseOrders[index].quantity;
+      orderedPurchaseOrders[index].arrived = true;
+      index++;
+      continue;
     }
+
+    if (stock < orderedSalesOrders[index].quantity) {
+      while (stock < orderedSalesOrders[index].quantity) {
+      stock += orderedPurchaseOrders[index].quantity;
+      orderedPurchaseOrders[index].arrived = true;
+      }
+    }
+
+    if (stock >= orderedSalesOrders[index].quantity) {
+      stock -= orderedSalesOrders[index].quantity;
+      const expectedDateInSec = new Date(
+        orderedPurchaseOrders[index].receiving
+      );
+      
+      const expectedDate = new Date(
+        expectedDateInSec.setDate(expectedDateInSec.getDate() + 7)
+      )
+        .toISOString()
+        .split('T')[0];
+      allocationDates.push({
+        id: orderedSalesOrders[index].id,
+        expectedDeliveryDate: expectedDate,
+      });
+    }
+    index++;
+    continue;
   }
-
-  // Create an array of objects containing sales order ID and allocation date
-  const result = Object.keys(allocationDates)
-    .map((id) => ({
-      id: id,
-      expectedDeliveryDate: allocationDates[id],
-    }))
-    .sort(
-      (a, b) =>
-        new Date(a.expectedDeliveryDate) - new Date(b.expectedDeliveryDate)
-    );
-
-  return result;
 }
 
 console.log(allocate(salesOrders, purchaseOrders));
