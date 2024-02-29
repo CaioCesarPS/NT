@@ -41,18 +41,8 @@ const salesOrders = [
   },
   {
     id: 'S6',
-    created: '2021-12-20',
-    quantity: 3,
-  },
-  {
-    id: 'S7',
-    created: '2021-12-20',
-    quantity: 3,
-  },
-  {
-    id: 'S8',
-    created: '2021-12-20',
-    quantity: 3,
+    created: '2020-11-07',
+    quantity: 1,
   },
 ];
 
@@ -84,24 +74,46 @@ const purchaseOrders = [
   },
   {
     id: 'P6',
-    receiving: '2020-02-25',
+    receiving: '2020-03-21',
+    quantity: 10,
+  },
+  {
+    id: 'P7',
+    receiving: '2020-03-22',
     quantity: 10,
   },
 ];
 
-function allocate(
-  salesOrders,
-  purchaseOrders
+function addToStockWhenSalesOrderFinished(
+  orderedSalesOrders,
+  orderedPurchaseOrders,
+  index,
+  stock
 ) {
+  if (!orderedSalesOrders[index]) {
+    stock += orderedPurchaseOrders[index].quantity;
+    orderedPurchaseOrders[index].arrived = true;
+
+    return {
+      error: true,
+      updatedStock: null,
+    };
+  }
+
+  return {
+    error: false,
+    updatedStock: stock,
+  };
+}
+
+function allocate(salesOrders, purchaseOrders) {
   // eu vou iterar sobre as os as compras dos fornecedores, se o estoque atual nao suprir o pedido ele adiciona no estoque.
   // quando o proximo estoque chegar ele vai tentar suprir o pedido novamente.
   // se surprir ele vai criar um objeto contento o id e a data de entrega que é a data do ultimo estoque + 7 dias.
   // ele vai deletar o pedido que foi suprido e vai para o proximo pedido.
-  const orderedSalesOrders = salesOrders
-    .sort(
-      (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
-    )
-    .reverse();
+  const orderedSalesOrders = salesOrders.sort(
+    (a, b) => new Date(a.created).getTime() - new Date(b.created).getTime()
+  );
   console.log('orderedSalesOrders', orderedSalesOrders);
 
   const orderedPurchaseOrders = purchaseOrders
@@ -113,40 +125,80 @@ function allocate(
     })
     .sort(
       (a, b) =>
-        new Date(b.receiving).getTime() - new Date(a.receiving).getTime()
-    )
-    .reverse();
+        new Date(a.receiving).getTime() - new Date(b.receiving).getTime()
+    );
   console.log('orderedPurchaseOrders', orderedPurchaseOrders);
 
   let stock = 0;
   let index = 0;
+  let purchaseOrderIndex = 0;
   let allocationDates = [];
+  const hasAnyUnarrivedPurchaseOrder = orderedPurchaseOrders.some(
+    (order) => !order.arrived
+  );
 
-  while (orderedPurchaseOrders.filter((order) => order.arrived === false)) {
+  while (hasAnyUnarrivedPurchaseOrder) {
     if (orderedPurchaseOrders.length === index) {
       return allocationDates;
     }
 
-    if (!orderedSalesOrders[index]) {
-      stock += orderedPurchaseOrders[index].quantity;
-      orderedPurchaseOrders[index].arrived = true;
+    const { error, updatedStock } = addToStockWhenSalesOrderFinished(
+      orderedSalesOrders,
+      orderedPurchaseOrders,
+      index,
+      stock
+    );
+
+    if (error) {
       index++;
       continue;
     }
 
+    stock = updatedStock;
+
     if (stock < orderedSalesOrders[index].quantity) {
-      while (stock < orderedSalesOrders[index].quantity) {
-      stock += orderedPurchaseOrders[index].quantity;
-      orderedPurchaseOrders[index].arrived = true;
+      if (!orderedPurchaseOrders[purchaseOrderIndex]) {
+        return allocationDates;
       }
-    }
+
+      while (stock < orderedSalesOrders[index].quantity) {
+        console.log(
+          'stock',
+          stock,
+          'orderedPurchaseOrders',
+          orderedPurchaseOrders[purchaseOrderIndex].id,
+          'quantity',
+          orderedPurchaseOrders[purchaseOrderIndex].quantity
+        );
+        console.log(
+          'orderedSalesOrders',
+          orderedSalesOrders[index].id,
+          'quantity',
+          orderedSalesOrders[index].quantity
+        );
+        stock += orderedPurchaseOrders[purchaseOrderIndex].quantity;
+        orderedPurchaseOrders[purchaseOrderIndex].arrived = true;
+        purchaseOrderIndex++;
+      }
+      console.log('out stock', stock);
+      console.log('index', index, 'purchaseOrderIndex', purchaseOrderIndex);
+      console.log();
+  }
 
     if (stock >= orderedSalesOrders[index].quantity) {
+      console.log('consigo comprar?', stock);
+      console.log(
+        'stock',
+        stock,
+        'sale quantity',
+        orderedSalesOrders[index].quantity
+      );
       stock -= orderedSalesOrders[index].quantity;
+      console.log('sim comprei', stock);
       const expectedDateInSec = new Date(
         orderedPurchaseOrders[index].receiving
       );
-      
+
       const expectedDate = new Date(
         expectedDateInSec.setDate(expectedDateInSec.getDate() + 7)
       )
