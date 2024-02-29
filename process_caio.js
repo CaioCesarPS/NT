@@ -44,6 +44,16 @@ const salesOrders = [
     created: '2020-11-07',
     quantity: 1,
   },
+  {
+    id: 'S7',
+    created: '2020-11-08',
+    quantity: 5,
+  },
+  {
+    id: 'S8',
+    created: '2020-11-09',
+    quantity: 3,
+  },
 ];
 
 const purchaseOrders = [
@@ -82,6 +92,11 @@ const purchaseOrders = [
     receiving: '2020-03-22',
     quantity: 10,
   },
+  {
+    id: 'P8',
+    receiving: '2020-03-23',
+    quantity: 10,
+  },
 ];
 
 function addToStockWhenSalesOrderFinished(
@@ -114,7 +129,6 @@ function allocate(salesOrders, purchaseOrders) {
   const orderedSalesOrders = salesOrders.sort(
     (a, b) => new Date(a.created).getTime() - new Date(b.created).getTime()
   );
-  console.log('orderedSalesOrders', orderedSalesOrders);
 
   const orderedPurchaseOrders = purchaseOrders
     .map((order) => {
@@ -127,7 +141,6 @@ function allocate(salesOrders, purchaseOrders) {
       (a, b) =>
         new Date(a.receiving).getTime() - new Date(b.receiving).getTime()
     );
-  console.log('orderedPurchaseOrders', orderedPurchaseOrders);
 
   let stock = 0;
   let index = 0;
@@ -137,6 +150,7 @@ function allocate(salesOrders, purchaseOrders) {
     (order) => !order.arrived
   );
 
+  // iterate until the purchase orders are all arrived
   while (hasAnyUnarrivedPurchaseOrder) {
     if (orderedPurchaseOrders.length === index) {
       return allocationDates;
@@ -156,45 +170,23 @@ function allocate(salesOrders, purchaseOrders) {
 
     stock = updatedStock;
 
+    // if the stock is less than the ordered quantity, we need to wait for the next purchase order
     if (stock < orderedSalesOrders[index].quantity) {
       if (!orderedPurchaseOrders[purchaseOrderIndex]) {
         return allocationDates;
       }
 
+      // iterate over the purchase orders until the stock is enough to fulfill the sales order
       while (stock < orderedSalesOrders[index].quantity) {
-        console.log(
-          'stock',
-          stock,
-          'orderedPurchaseOrders',
-          orderedPurchaseOrders[purchaseOrderIndex].id,
-          'quantity',
-          orderedPurchaseOrders[purchaseOrderIndex].quantity
-        );
-        console.log(
-          'orderedSalesOrders',
-          orderedSalesOrders[index].id,
-          'quantity',
-          orderedSalesOrders[index].quantity
-        );
         stock += orderedPurchaseOrders[purchaseOrderIndex].quantity;
         orderedPurchaseOrders[purchaseOrderIndex].arrived = true;
         purchaseOrderIndex++;
       }
-      console.log('out stock', stock);
-      console.log('index', index, 'purchaseOrderIndex', purchaseOrderIndex);
-      console.log();
   }
 
+    // if the stock is enough to fulfill the sales order, we need to allocate the expected delivery date
     if (stock >= orderedSalesOrders[index].quantity) {
-      console.log('consigo comprar?', stock);
-      console.log(
-        'stock',
-        stock,
-        'sale quantity',
-        orderedSalesOrders[index].quantity
-      );
       stock -= orderedSalesOrders[index].quantity;
-      console.log('sim comprei', stock);
       const expectedDateInSec = new Date(
         orderedPurchaseOrders[index].receiving
       );
